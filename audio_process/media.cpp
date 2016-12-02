@@ -112,7 +112,7 @@ int Media::process() {
     p_frame_rgb = av_frame_alloc();
     p_frame_a = av_frame_alloc();
     filt_frame = av_frame_alloc();
-    avpicture_alloc((AVPicture *)p_frame_rgb, AV_PIX_FMT_RGB24, media.p_video_codec_ctx->width, media.p_video_codec_ctx->height);
+    avpicture_alloc((AVPicture *)p_frame_rgb, AV_PIX_FMT_BGRA, media.p_video_codec_ctx->width, media.p_video_codec_ctx->height);
 
     int ret, got_picture, got_audio;
     AVPacket *packet = (AVPacket *)av_malloc(sizeof(AVPacket));
@@ -123,7 +123,7 @@ int Media::process() {
     struct SwsContext *img_convert_ctx;
     img_convert_ctx = sws_getContext(
         media.p_video_codec_ctx->width, media.p_video_codec_ctx->height, media.p_video_codec_ctx->pix_fmt,
-        media.p_video_codec_ctx->width, media.p_video_codec_ctx->height, AV_PIX_FMT_RGB24,
+        media.p_video_codec_ctx->width, media.p_video_codec_ctx->height, AV_PIX_FMT_BGRA,
         SWS_BICUBIC, NULL, NULL, NULL);
 
     FILE *pcm = fopen(media.pcm_file.c_str(), "wb");
@@ -146,8 +146,11 @@ int Media::process() {
                 sws_scale(img_convert_ctx, (const uint8_t * const *)p_frame->data, 
                     p_frame->linesize, 0, media.p_video_codec_ctx->height,
                     p_frame_rgb->data, p_frame_rgb->linesize);
-                if (video_frames < 10)
-                    save_frame(p_frame_rgb, media.p_video_codec_ctx->width, media.p_video_codec_ctx->height, video_frames);
+                Video::process_image(
+                    p_frame_rgb->data[0], 
+                    media.p_video_codec_ctx->width,
+                    media.p_video_codec_ctx->height,
+                    "");
             }
         }
         // audio
@@ -204,11 +207,23 @@ void Media::clear() {
     return;
 }
 
-bool Media::set_parameters(std::string name, std::string value) {
+bool Media::set_parameter(string name, string value) {
     if (!instance) return false;
     if (name == "pcm") {
         instance->pcm_file = value;
         return true;
+    }
+    else if (name == "opencv") {
+        return Video::set_parameter("opencv", value);
+    }
+    else if (name == "warp") {
+        return Video::set_parameter("warp", value);
+    }
+    else if (name == "landmark_output") {
+        return Video::set_parameter("landmark_output", value);
+    }
+    else if (name == "expression_output") {
+        return Video::set_parameter("expression_output", value);
     }
     return false;
 }
