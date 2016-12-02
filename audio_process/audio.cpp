@@ -7,8 +7,8 @@ static const char *filter_descr = "aresample=16000,aformat=sample_fmts=s16:chann
 Audio *Audio::instance = NULL;
 
 void Audio::initialize() {
+    if (instance) return;
     avfilter_register_all();
-    delete instance;
     instance = new Audio();
 
     return;

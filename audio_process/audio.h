@@ -3,6 +3,7 @@
 #define __YK_AUDIO_H__
 
 #include "ffmpeg.h"
+#include "sphinx.h"
 
 class Audio {
 private:
@@ -18,7 +19,9 @@ private:
     // cannot ctor
     Audio()
         : buffersink_ctx(NULL), buffersrc_ctx(NULL),
-          filter_graph(NULL),   filt_frame(NULL) {}
+          filter_graph(NULL),   filt_frame(NULL) {
+        Sphinx::initialize();
+    }
     ~Audio() { clear(); }
 
     // methods

@@ -33,6 +33,9 @@
     <ClCompile Include="simple_warp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="sphinx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="audio.h">
@@ -51,6 +54,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="simple_warp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sphinx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

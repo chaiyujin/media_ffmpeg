@@ -185,8 +185,8 @@ int Media::process() {
 }
 
 void Media::initialize() {
+    if (instance) return;
     av_register_all();
-    delete instance;
     instance = new Media();
     return;
 }
