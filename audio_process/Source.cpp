@@ -24,11 +24,11 @@ void run_from_json(const char *file_name) {
    
     for (int i = 0; i < 2; ++i) {
         char media[100];
-        sprintf(media, "data/short%d.mp4", i);
+        sprintf(media, "data/%d.mp4", i);
         Media::load_media(media);
         Media::process();
     }
-    Audio::play_pcm("processed/data0.pcm");
+    //Audio::play_pcm("processed/data0.pcm");
    
     return;
 

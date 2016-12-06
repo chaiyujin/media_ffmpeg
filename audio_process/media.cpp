@@ -120,6 +120,7 @@ int Media::process() {
     for (int i = 0; i < media.time_stamps.size(); i += 2) {
         double start_time = media.time_stamps[i];
         double end_time   = media.time_stamps[i + 1];
+        if (end_time - start_time < 2) continue;
         char pcm[100];
         char lm[100];
         char ex[100];
@@ -131,6 +132,7 @@ int Media::process() {
         set_parameter("pcm", pcm);
         set_parameter("landmark_output", lm);
         set_parameter("expression_output", ex);
+        cout << start_time << " " << end_time << endl;
         process(start_time, end_time);
         Sphinx::run_pcm(pcm, phone);
         data_index++;
@@ -170,12 +172,16 @@ int Media::process(double start_time, double end_time) {
 
     // read packet
     int video_frames = 0;
-    while (av_read_frame(media.p_fmt_ctx, packet) >= 0) {
+    av_seek_frame(media.p_fmt_ctx, media.video_stream_idx, 0, AVSEEK_FLAG_BACKWARD);
+    bool video_done = false;
+    bool audio_done = false;
+    while (!video_done && !audio_done && (av_read_frame(media.p_fmt_ctx, packet) >= 0)) {
         // video
         if (packet->stream_index == media.video_stream_idx) {
             ret = avcodec_decode_video2(media.p_video_codec_ctx, p_frame, &got_picture, packet);
             double pts = av_frame_get_best_effort_timestamp(p_frame) * av_q2d(media.p_fmt_ctx->streams[media.video_stream_idx]->time_base);
-
+            if (pts > end_time) video_done = true;
+            if (!(pts >= start_time && pts <= end_time)) continue;
             if (ret < 0) {
                 printf("Decode error.\n");
                 return -1;
@@ -196,7 +202,9 @@ int Media::process(double start_time, double end_time) {
         // audio
         if (packet->stream_index == media.audio_stream_idx) {
             ret = avcodec_decode_audio4(media.p_audio_codec_ctx, p_frame_a, &got_audio, packet);
-
+            double pts = av_frame_get_best_effort_timestamp(p_frame_a) * av_q2d(media.p_fmt_ctx->streams[media.audio_stream_idx]->time_base);
+            if (pts > end_time) audio_done = true;
+            if (!(pts >= start_time && pts <= end_time)) continue;
             if (ret < 0) {
                 printf("Decode error.\n");
                 return -1;
@@ -274,114 +282,101 @@ void on_trackbar(int pos, void *) {
 }
 
 void Media::scan() {
-    picture_data.clear();
-    // process
-    AVFrame *p_frame        = av_frame_alloc();
-    AVFrame *p_frame_rgb    = av_frame_alloc();
-    AVFrame *p_frame_a      = av_frame_alloc();
-    AVFrame *filt_frame     = av_frame_alloc();
-
-    p_frame = av_frame_alloc();
-    p_frame_rgb = av_frame_alloc();
-    p_frame_a = av_frame_alloc();
-    filt_frame = av_frame_alloc();
-    avpicture_alloc((AVPicture *)p_frame_rgb, AV_PIX_FMT_BGRA, p_video_codec_ctx->width, p_video_codec_ctx->height);
-
-    int ret, got_picture, got_audio;
-    AVPacket *packet = (AVPacket *)av_malloc(sizeof(AVPacket));
-
-    struct SwsContext *img_convert_ctx;
-    img_convert_ctx = sws_getContext(
-        p_video_codec_ctx->width, p_video_codec_ctx->height, p_video_codec_ctx->pix_fmt,
-        p_video_codec_ctx->width, p_video_codec_ctx->height, AV_PIX_FMT_BGRA,
-        SWS_BICUBIC, NULL, NULL, NULL);
-
-    // read packet
-    int video_frames = 0;
-    int frame_size = p_video_codec_ctx->height * p_video_codec_ctx->width * 4;
-    while (av_read_frame(p_fmt_ctx, packet) >= 0) {
-        // video
-        if (packet->stream_index == video_stream_idx) {
-            ret = avcodec_decode_video2(p_video_codec_ctx, p_frame, &got_picture, packet);
-            double pts = av_frame_get_best_effort_timestamp(p_frame) * av_q2d(p_fmt_ctx->streams[video_stream_idx]->time_base);
-
-            if (ret < 0) {
-                printf("Decode error.\n");
-            }
-            // valid
-            if (got_picture) {
-                printf("Frame: %d  \r", video_frames++);
-                sws_scale(img_convert_ctx, (const uint8_t * const *)p_frame->data, 
-                          p_frame->linesize, 0, p_video_codec_ctx->height,
-                          p_frame_rgb->data, p_frame_rgb->linesize);
-                Frame frame;
-                frame.img = Mat(p_video_codec_ctx->height, p_video_codec_ctx->width, CV_8UC3);
-                frame.pts  = pts;
-                int index = 0;
-                for (int r = 0; r < frame.img.rows; ++r) {
-                    byte *data = frame.img.ptr<byte>(r);
-                    for (int c = 0; c < frame.img.cols * 3; c += 3) {
-                        data[c]     = p_frame_rgb->data[0][index++];
-                        data[c + 1] = p_frame_rgb->data[0][index++];
-                        data[c + 2] = p_frame_rgb->data[0][index++];
-                        index++;
-                    }
-                }
-                picture_data.push_back(frame);
-
-                frame.~Frame();
-            }
-        }
-    }
-    printf("\n");
-    // close output pcm file
-    sws_freeContext(img_convert_ctx);
-    av_frame_free(&p_frame);
-    av_frame_free(&p_frame_rgb);
-    av_frame_free(&p_frame_a);
-    av_frame_free(&filt_frame);
-
     while (true) {
-        frame_data = &picture_data;
+        // process
+        AVFrame *p_frame        = av_frame_alloc();
+        AVFrame *p_frame_rgb    = av_frame_alloc();
+        AVFrame *p_frame_a      = av_frame_alloc();
+        AVFrame *filt_frame     = av_frame_alloc();
+
+        p_frame = av_frame_alloc();
+        p_frame_rgb = av_frame_alloc();
+        p_frame_a = av_frame_alloc();
+        filt_frame = av_frame_alloc();
+        avpicture_alloc((AVPicture *)p_frame_rgb, AV_PIX_FMT_BGRA, p_video_codec_ctx->width, p_video_codec_ctx->height);
+
+        int ret, got_picture, got_audio;
+        AVPacket *packet = (AVPacket *)av_malloc(sizeof(AVPacket));
+
+        struct SwsContext *img_convert_ctx;
+        img_convert_ctx = sws_getContext(
+            p_video_codec_ctx->width, p_video_codec_ctx->height, p_video_codec_ctx->pix_fmt,
+            p_video_codec_ctx->width, p_video_codec_ctx->height, AV_PIX_FMT_BGRA,
+            SWS_BICUBIC, NULL, NULL, NULL);
+
+        // read packet
         time_stamps.clear();
         namedWindow("select");
-        imshow("select", picture_data[0].img);
-        slider = 0;
-        slider_max = picture_data.size() - 1;
-        createTrackbar("frames", "select", &slider, picture_data.size() - 1, on_trackbar);
-        while(true) {
-            char c = waitKey(20);
-            if (c == 'q') {
-                if (time_stamps.size()) save_time_stamps();
-                break;
-            }
-            else if (c == 't') {
-                cout << "Select frame at time: " << picture_data[slider].pts << endl;
-                time_stamps.push_back(picture_data[slider].pts);
-            }
-            else if (c == 'z') {
-                cout << "Undo\n";
-                if (time_stamps.size()) time_stamps.pop_back();
-            }
-            else if (c == 'o') {
-                slider --;
-                if (slider < 0) slider = 0;
-                setTrackbarPos("frames", "select", slider);
-                on_trackbar(slider, &slider);
-            }
-            else if (c == 'p') {
-                slider ++;
-                if (slider > slider_max) slider = slider_max;
-                setTrackbarPos("frames", "select", slider);
-                on_trackbar(slider, &slider);
+
+        int video_frames = 0;
+        int frame_size = p_video_codec_ctx->height * p_video_codec_ctx->width * 4;
+        while (av_read_frame(p_fmt_ctx, packet) >= 0) {
+            // video
+            if (packet->stream_index == video_stream_idx) {
+                ret = avcodec_decode_video2(p_video_codec_ctx, p_frame, &got_picture, packet);
+                double pts = av_frame_get_best_effort_timestamp(p_frame) * av_q2d(p_fmt_ctx->streams[video_stream_idx]->time_base);
+
+                if (ret < 0) {
+                    printf("Decode error.\n");
+                }
+                // valid
+                if (got_picture) {
+                    printf("Frame: %d  \r", video_frames++);
+                    sws_scale(img_convert_ctx, (const uint8_t * const *)p_frame->data, 
+                        p_frame->linesize, 0, p_video_codec_ctx->height,
+                        p_frame_rgb->data, p_frame_rgb->linesize);
+                    Frame frame;
+                    frame.img = Mat(p_video_codec_ctx->height, p_video_codec_ctx->width, CV_8UC3);
+                    frame.pts  = pts;
+                    int index = 0;
+                    for (int r = 0; r < frame.img.rows; ++r) {
+                        byte *data = frame.img.ptr<byte>(r);
+                        for (int c = 0; c < frame.img.cols * 3; c += 3) {
+                            data[c]     = p_frame_rgb->data[0][index++];
+                            data[c + 1] = p_frame_rgb->data[0][index++];
+                            data[c + 2] = p_frame_rgb->data[0][index++];
+                            index++;
+                        }
+                    }
+
+                    imshow("select", frame.img);
+                    char c = waitKey();
+                    if (c == 'q') {
+                        if (time_stamps.size()) save_time_stamps();
+                        break;
+                    }
+                    else if (c == 't') {
+                        cout << "Select frame at time: " << pts << endl;
+                        time_stamps.push_back(pts);
+                    }
+                    else if (c == 'z') {
+                        cout << "Undo\n";
+                        if (time_stamps.size()) time_stamps.pop_back();
+                    }
+                    else if (c == 'u') {
+                        cout << "Update time: " << pts << endl;
+                        time_stamps[time_stamps.size() - 1] = pts;
+                    }
+                }
             }
         }
+        printf("\n");
+        // close output pcm file
+        sws_freeContext(img_convert_ctx);
+        av_frame_free(&p_frame);
+        av_frame_free(&p_frame_rgb);
+        av_frame_free(&p_frame_a);
+        av_frame_free(&filt_frame);
+
+
+        if (time_stamps.size() > 0 && time_stamps.size() % 2 == 0)
+            save_time_stamps();
+
         load_time_stamps();
         destroyWindow("select");
-        if (time_stamps.size() > 0 && time_stamps.size() % 2 == 0) {
-            break;
-        }
-        printf("Need to set even number time stamps.\n");
+
+        if (time_stamps.size() > 0 && time_stamps.size() % 2 == 0) break;
+        printf("Error in time stamps.\n");
     }
 }
 
