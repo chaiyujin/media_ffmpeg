@@ -25,11 +25,11 @@ void save_frame(AVFrame *pFrame, int width, int height, int iFrame) {
     return;
 }
 
-int Media::load_media(const char *file_name) {
+int Media::read_media(const char *file_name) {
     if (!instance) return -1;
     Media &media = *instance;
     media.clear();
-    
+
     // read the file
     media.p_fmt_ctx = avformat_alloc_context();
     if (avformat_open_input(&media.p_fmt_ctx, file_name, NULL, NULL) != 0) {
@@ -96,6 +96,15 @@ int Media::load_media(const char *file_name) {
         media.p_audio_codec_ctx->channel_layout,
         media.p_fmt_ctx->streams[media.audio_stream_idx]->time_base);
 
+    return 0;
+}
+
+int Media::load_media(const char *file_name) {
+    if (Media::read_media(file_name)) {
+        return -1;
+    }
+    //instance->scan();
+    //Media::read_media(file_name);
     return 0;
 }
 
@@ -226,4 +235,63 @@ bool Media::set_parameter(string name, string value) {
         return Video::set_parameter("expression_output", value);
     }
     return false;
+}
+
+void Media::scan() {
+    time_stamps.clear();
+    // process
+    AVFrame *p_frame        = av_frame_alloc();
+    AVFrame *p_frame_rgb    = av_frame_alloc();
+    AVFrame *p_frame_a      = av_frame_alloc();
+    AVFrame *filt_frame     = av_frame_alloc();
+
+    p_frame = av_frame_alloc();
+    p_frame_rgb = av_frame_alloc();
+    p_frame_a = av_frame_alloc();
+    filt_frame = av_frame_alloc();
+    avpicture_alloc((AVPicture *)p_frame_rgb, AV_PIX_FMT_BGRA, p_video_codec_ctx->width, p_video_codec_ctx->height);
+
+    int ret, got_picture, got_audio;
+    AVPacket *packet = (AVPacket *)av_malloc(sizeof(AVPacket));
+
+    struct SwsContext *img_convert_ctx;
+    img_convert_ctx = sws_getContext(
+        p_video_codec_ctx->width, p_video_codec_ctx->height, p_video_codec_ctx->pix_fmt,
+        p_video_codec_ctx->width, p_video_codec_ctx->height, AV_PIX_FMT_BGRA,
+        SWS_BICUBIC, NULL, NULL, NULL);
+
+    // read packet
+    int video_frames = 0;
+    while (av_read_frame(p_fmt_ctx, packet) >= 0) {
+        // video
+        if (packet->stream_index == video_stream_idx) {
+            ret = avcodec_decode_video2(p_video_codec_ctx, p_frame, &got_picture, packet);
+            double pts = av_frame_get_best_effort_timestamp(p_frame) * av_q2d(p_fmt_ctx->streams[video_stream_idx]->time_base);
+
+            if (ret < 0) {
+                printf("Decode error.\n");
+            }
+            // valid
+            if (got_picture) {
+                printf("Frame: %d  \r", video_frames++);
+                sws_scale(img_convert_ctx, (const uint8_t * const *)p_frame->data, 
+                    p_frame->linesize, 0, p_video_codec_ctx->height,
+                    p_frame_rgb->data, p_frame_rgb->linesize);
+                Video::process_image(
+                    p_frame_rgb->data[0], 
+                    p_video_codec_ctx->width,
+                    p_video_codec_ctx->height,
+                    "");
+            }
+        }
+    }
+    // close output pcm file
+
+    sws_freeContext(img_convert_ctx);
+
+    av_frame_free(&p_frame);
+    av_frame_free(&p_frame_rgb);
+    av_frame_free(&p_frame_a);
+    av_frame_free(&filt_frame);
+
 }

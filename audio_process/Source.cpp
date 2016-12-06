@@ -33,10 +33,10 @@ void run_from_json(const char *file_name) {
         sprintf(lm,    "processed/short%d.land", i);
         sprintf(ex,    "processed/short%d.expr", i);
         sprintf(phone, "processed/short%d.phone", i);
-        Media::load_media(media);
         Media::set_parameter("pcm", pcm);
         Media::set_parameter("landmark_output", lm);
         Media::set_parameter("expression_output", ex);
+        Media::load_media(media);
         Media::process();
         Sphinx::run_pcm(pcm, phone);
     }

@@ -22,6 +22,7 @@ private:
     int                 video_stream_idx,
                         audio_stream_idx;
     string              pcm_file;
+    vector<double>      time_stamps;
 
     // cannot ctor
     Media()
@@ -33,12 +34,15 @@ private:
         Video::initialize();
     }
     ~Media() { delete instance; }
+    // scan the media to determine time stamps
+    void            scan();
 public:
 
     void            clear();
 
     static void     initialize();
     static int      load_media(const char *file_path);
+    static int      read_media(const char *file_path);
     static int      process();
     static bool     set_parameter(string name, string value);
 };

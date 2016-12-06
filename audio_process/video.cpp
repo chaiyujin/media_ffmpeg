@@ -120,10 +120,6 @@ void Video::process_image(
         waitKey(1);
     }
 
-    if (instance->lm_fp) fclose(instance->lm_fp);
-    if (instance->ex_fp) fclose(instance->ex_fp);
-    instance->lm_fp = NULL;
-    instance->ex_fp = NULL;
     return;
 }
 
