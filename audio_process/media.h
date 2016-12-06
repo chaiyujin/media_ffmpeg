@@ -8,6 +8,13 @@
 #include <string>
 using namespace std;
 
+struct Frame {
+    Mat       img;
+    double    pts;
+};
+
+typedef unsigned char byte;
+
 class Media {
 private:
     // instance
@@ -22,7 +29,13 @@ private:
     int                 video_stream_idx,
                         audio_stream_idx;
     string              pcm_file;
+
+    string              media_file;
+
+    // for scan
+    int                 slider;
     vector<double>      time_stamps;
+    vector<Frame>       picture_data;
 
     // cannot ctor
     Media()
@@ -36,6 +49,9 @@ private:
     ~Media() { delete instance; }
     // scan the media to determine time stamps
     void            scan();
+    void            save_time_stamps();
+    void            load_time_stamps();
+    
 public:
 
     void            clear();
@@ -44,6 +60,7 @@ public:
     static int      load_media(const char *file_path);
     static int      read_media(const char *file_path);
     static int      process();
+    static int      process(double start_time, double end_time);
     static bool     set_parameter(string name, string value);
 };
 

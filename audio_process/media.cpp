@@ -1,6 +1,10 @@
 #include "media.h"
-
+#include <fstream>
+using namespace std;
 Media *Media::instance = NULL;
+vector<Frame> *frame_data;
+static int slider_max;
+static int data_index = 0;
 
 void save_frame(AVFrame *pFrame, int width, int height, int iFrame) {
     FILE *pFile;
@@ -103,12 +107,39 @@ int Media::load_media(const char *file_name) {
     if (Media::read_media(file_name)) {
         return -1;
     }
-    //instance->scan();
-    //Media::read_media(file_name);
+    instance->media_file = file_name;
+    instance->scan();
+    Media::read_media(file_name);
     return 0;
 }
 
 int Media::process() {
+    if (!instance) return -1;
+    Media &media = *instance;
+
+    for (int i = 0; i < media.time_stamps.size(); i += 2) {
+        double start_time = media.time_stamps[i];
+        double end_time   = media.time_stamps[i + 1];
+        char pcm[100];
+        char lm[100];
+        char ex[100];
+        char phone[100];
+        sprintf(pcm,   "processed/data%d.pcm", data_index);
+        sprintf(lm,    "processed/data%d.land", data_index);
+        sprintf(ex,    "processed/data%d.expr", data_index);
+        sprintf(phone, "processed/data%d.phone", data_index);
+        set_parameter("pcm", pcm);
+        set_parameter("landmark_output", lm);
+        set_parameter("expression_output", ex);
+        process(start_time, end_time);
+        Sphinx::run_pcm(pcm, phone);
+        data_index++;
+    }
+
+    media.clear();
+}
+
+int Media::process(double start_time, double end_time) {
     if (!instance) return -1;
     Media &media = *instance;
     // process
@@ -178,7 +209,7 @@ int Media::process() {
         av_free_packet(packet);
     }
     // close output pcm file
-
+    printf("\n");
     fclose(pcm);
 
     sws_freeContext(img_convert_ctx);
@@ -187,8 +218,6 @@ int Media::process() {
     av_frame_free(&p_frame_rgb);
     av_frame_free(&p_frame_a);
     av_frame_free(&filt_frame);
-
-    media.clear();
 
     return 0;
 }
@@ -207,12 +236,14 @@ void Media::clear() {
         avformat_close_input(&p_fmt_ctx);
     }
     p_fmt_ctx = NULL;
-    p_video_codec_ctx = 
-        p_audio_codec_ctx = NULL;
-    p_video_codec = 
-        p_audio_codec = NULL;
+    p_video_codec_ctx = NULL;
+    p_audio_codec_ctx = NULL;
+    p_video_codec = NULL;
+    p_audio_codec = NULL;
     video_stream_idx = -1;
     audio_stream_idx = -1;
+
+    destroyAllWindows();
     return;
 }
 
@@ -237,8 +268,13 @@ bool Media::set_parameter(string name, string value) {
     return false;
 }
 
+void on_trackbar(int pos, void *) {
+    vector<Frame> &picture_data = *frame_data;
+    imshow("select", picture_data[pos].img);
+}
+
 void Media::scan() {
-    time_stamps.clear();
+    picture_data.clear();
     // process
     AVFrame *p_frame        = av_frame_alloc();
     AVFrame *p_frame_rgb    = av_frame_alloc();
@@ -262,6 +298,7 @@ void Media::scan() {
 
     // read packet
     int video_frames = 0;
+    int frame_size = p_video_codec_ctx->height * p_video_codec_ctx->width * 4;
     while (av_read_frame(p_fmt_ctx, packet) >= 0) {
         // video
         if (packet->stream_index == video_stream_idx) {
@@ -275,23 +312,102 @@ void Media::scan() {
             if (got_picture) {
                 printf("Frame: %d  \r", video_frames++);
                 sws_scale(img_convert_ctx, (const uint8_t * const *)p_frame->data, 
-                    p_frame->linesize, 0, p_video_codec_ctx->height,
-                    p_frame_rgb->data, p_frame_rgb->linesize);
-                Video::process_image(
-                    p_frame_rgb->data[0], 
-                    p_video_codec_ctx->width,
-                    p_video_codec_ctx->height,
-                    "");
+                          p_frame->linesize, 0, p_video_codec_ctx->height,
+                          p_frame_rgb->data, p_frame_rgb->linesize);
+                Frame frame;
+                frame.img = Mat(p_video_codec_ctx->height, p_video_codec_ctx->width, CV_8UC3);
+                frame.pts  = pts;
+                int index = 0;
+                for (int r = 0; r < frame.img.rows; ++r) {
+                    byte *data = frame.img.ptr<byte>(r);
+                    for (int c = 0; c < frame.img.cols * 3; c += 3) {
+                        data[c]     = p_frame_rgb->data[0][index++];
+                        data[c + 1] = p_frame_rgb->data[0][index++];
+                        data[c + 2] = p_frame_rgb->data[0][index++];
+                        index++;
+                    }
+                }
+                picture_data.push_back(frame);
+
+                frame.~Frame();
             }
         }
     }
+    printf("\n");
     // close output pcm file
-
     sws_freeContext(img_convert_ctx);
-
     av_frame_free(&p_frame);
     av_frame_free(&p_frame_rgb);
     av_frame_free(&p_frame_a);
     av_frame_free(&filt_frame);
 
+    while (true) {
+        frame_data = &picture_data;
+        time_stamps.clear();
+        namedWindow("select");
+        imshow("select", picture_data[0].img);
+        slider = 0;
+        slider_max = picture_data.size() - 1;
+        createTrackbar("frames", "select", &slider, picture_data.size() - 1, on_trackbar);
+        while(true) {
+            char c = waitKey(20);
+            if (c == 'q') {
+                if (time_stamps.size()) save_time_stamps();
+                break;
+            }
+            else if (c == 't') {
+                cout << "Select frame at time: " << picture_data[slider].pts << endl;
+                time_stamps.push_back(picture_data[slider].pts);
+            }
+            else if (c == 'z') {
+                cout << "Undo\n";
+                if (time_stamps.size()) time_stamps.pop_back();
+            }
+            else if (c == 'o') {
+                slider --;
+                if (slider < 0) slider = 0;
+                setTrackbarPos("frames", "select", slider);
+                on_trackbar(slider, &slider);
+            }
+            else if (c == 'p') {
+                slider ++;
+                if (slider > slider_max) slider = slider_max;
+                setTrackbarPos("frames", "select", slider);
+                on_trackbar(slider, &slider);
+            }
+        }
+        load_time_stamps();
+        destroyWindow("select");
+        if (time_stamps.size() > 0 && time_stamps.size() % 2 == 0) {
+            break;
+        }
+        printf("Need to set even number time stamps.\n");
+    }
+}
+
+void Media::save_time_stamps() {
+    ofstream fout(media_file + ".times");
+    fout << time_stamps.size() << endl;
+    for (int i = 0; i < time_stamps.size(); ++i) {
+        fout << time_stamps[i] << endl;
+    }
+    fout.close();
+}
+
+void Media::load_time_stamps() {
+    ifstream fin(media_file + ".times");
+    time_stamps.clear();
+    if (fin.is_open()) {
+        int count;
+        fin >> count;
+        printf("Set %d time stamps:\n", count);
+        for (int i = 0; i < count; ++i) {
+            double x;
+            fin >> x;
+            time_stamps.push_back(x);
+            printf("%f ", x);
+        }
+        printf("\n");
+        fin.close();
+    }
 }
