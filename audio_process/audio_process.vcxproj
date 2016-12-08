@@ -151,6 +151,9 @@
   <ItemGroup>
     <ClCompile Include="audio.cpp" />
     <ClCompile Include="dde_tracker.cpp" />
+    <ClCompile Include="directory.cpp" />
+    <ClCompile Include="landmark_collect.cpp" />
+    <ClCompile Include="log.cpp" />
     <ClCompile Include="media.cpp" />
     <ClCompile Include="simple_warp.cpp" />
     <ClCompile Include="Source.cpp" />
@@ -160,7 +163,10 @@
   <ItemGroup>
     <ClInclude Include="audio.h" />
     <ClInclude Include="dde_tracker.h" />
+    <ClInclude Include="directory.h" />
     <ClInclude Include="ffmpeg.h" />
+    <ClInclude Include="landmark_collect.h" />
+    <ClInclude Include="log.h" />
     <ClInclude Include="media.h" />
     <ClInclude Include="simple_warp.h" />
     <ClInclude Include="sphinx.h" />

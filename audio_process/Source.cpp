@@ -1,15 +1,18 @@
 #include "audio.h"
 #include "media.h"
+#include "landmark_collect.h"
 #include <fstream>
 using namespace std;
 
 void init();
 void run_from_json(const char *file_name);
+void process_raw_landmarks();
 
 int main() {
     init();
-    run_from_json("data/config.json");
-    
+    //run_from_json("data/config.json");
+    process_raw_landmarks();
+
     system("pause");
     return 0;
 }
@@ -33,4 +36,9 @@ void run_from_json(const char *file_name) {
     return;
 
     
+}
+
+void process_raw_landmarks() {
+    Collector::find_all_data("processed_back", "land");
+    Collector::pca();
 }
