@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerEnvironment>path=%path%;D:\software\dev\opencv\build\x64\vc12\bin;D:\software\dev\DDE;D:\software\dev\fftw-3.3.5-dll32;D:\software\dev\ffmpeg-3.2-win64-shared\bin;D:\software\dev\cmusphinx\libdll\x64;
+    <LocalDebuggerEnvironment>path=%path%;D:\software\dev\opencv\build\x64\vc12\bin;D:\software\dev\DDE;D:\software\dev\fftw-3.3.5-dll32;D:\software\dev\ffmpeg-3.2-win64-shared\bin;D:\software\dev\cmusphinx\libdll\x64;D:\software\dev\armadillo\examples\lib_win64;
 $(LocalDebuggerEnvironment)</LocalDebuggerEnvironment>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>

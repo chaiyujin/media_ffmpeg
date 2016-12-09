@@ -36,13 +36,13 @@
     <ClCompile Include="sphinx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="landmark_collect.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="directory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="log.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="collector.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -68,13 +68,13 @@
     <ClInclude Include="sphinx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="landmark_collect.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="log.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="directory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="collector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
