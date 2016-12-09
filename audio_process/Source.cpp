@@ -45,8 +45,8 @@ void process_raw_landmarks(string source, string dir, int kx, int ky) {
         if (dir[i] == '\\') dir[i] = '/';
     }
     if (dir[dir.length() - 1] != '/') dir += '/';
-    ofstream xout(dir + "X.txt");
-    ofstream yout(dir + "Y.txt");
+    ofstream xout(dir + "X.bin", std::ios::binary);
+    ofstream yout(dir + "Y.bin", std::ios::binary);
 
     Collector::find_all_data(source);
     Collector::pca_landmarks();
@@ -100,22 +100,20 @@ void process_raw_landmarks(string source, string dir, int kx, int ky) {
                  ((int)yi + ylen < data_list.size());
                  xi += X_STEP,
                  yi += Y_STEP) {
+
                 ++count;
                 for (int i = (int)xi; i < (int)xi + xlen; ++i) {
-                    xout << Collector::get_id_of_phoneme(phone_list[i]) << " ";
+                    int x = (Collector::get_id_of_phoneme(phone_list[i]));
+                    xout.write((char *)&x, sizeof(int));
                 }
-                xout << endl;
 
                 for (int i = (int)yi; i < (int)yi + ylen; ++i) {
                     for (int j = 0; j < ycol; j++) {
-                        yout << data_list[i][j] << " ";
+                        yout.write((char *)&data_list[i][j], sizeof(float));
                     }
-                    yout << endl;
                 }
-                yout << endl;
             }
             
-
         } while (Collector::get_next_data(file_paths));
         cout << "Spawn " << count << " data.\n"
                  << "X: " << xlen << " x 1\n"
