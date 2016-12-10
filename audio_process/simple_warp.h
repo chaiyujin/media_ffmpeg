@@ -19,9 +19,12 @@ private:
     float old_lm[150];
     float new_lm[150];
     DDETracker *dde;
+    string window;
+
 public:
-    SimpleWarp(DDETracker *dde_tracker, string file_path) {
+    SimpleWarp(DDETracker *dde_tracker, string file_path, string window_name = "simple") {
         image = imread(file_path);
+        window = window_name;
         //h = image.rows;
         //w = image.cols;
         for (int i = 0; i < 20; ++i) dde_tracker->run(image);
@@ -86,7 +89,7 @@ public:
                 }
             }
         }
-        imshow("simple", img);
+        imshow(window, img);
     }
 
     bool in_triangle(int x, int y, int pi0, int pi1, int pi2);

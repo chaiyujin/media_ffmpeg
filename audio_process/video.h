@@ -35,6 +35,8 @@ public:
         int width, int height,
         string window_name);
     static bool set_parameter(string, string);
+    static SimpleWarp *get_warpper() { return instance->warpper; }
+    static DDETracker *get_tracker() { return instance->dde_tracker; }
 };
 
 #endif

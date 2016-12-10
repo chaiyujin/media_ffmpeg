@@ -117,10 +117,14 @@ int Media::process() {
     if (!instance) return -1;
     Media &media = *instance;
 
+
     for (int i = 0; i < media.time_stamps.size(); i += 2) {
+        if (i >= media.time_stamps.size()) break;
+        cout << media.time_stamps.size() << " " << i << " ?????\n";
         double start_time = media.time_stamps[i];
         double end_time   = media.time_stamps[i + 1];
         if (end_time - start_time < 2) continue;
+        cout << start_time << " " << end_time << endl;
         char pcm[100];
         char lm[100];
         char ex[100];
@@ -132,13 +136,12 @@ int Media::process() {
         set_parameter("pcm", pcm);
         set_parameter("landmark_output", lm);
         set_parameter("expression_output", ex);
-        cout << start_time << " " << end_time << endl;
         process(start_time, end_time);
         Sphinx::run_pcm(pcm, phone);
         data_index++;
     }
 
-    media.clear();
+    //media.clear();
 }
 
 int Media::process(double start_time, double end_time) {
